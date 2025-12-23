@@ -3,11 +3,11 @@ import pandas as pd
 import matplotlib.pyplot as plt
 
 from utils import (
-    get_weather,
-    get_forecast,
+    get_coordinates,
+    get_weather_by_coords,
+    get_forecast_by_coords,
     weather_icon,
     weather_advice,
-    get_location_details,
     detect_location_by_ip
 )
 
@@ -55,73 +55,45 @@ st.markdown("---")
 # -------------------------------------------------
 st.sidebar.header("📍 Location")
 
-# Session defaults
-if "city" not in st.session_state:
-    st.session_state.city = "Ahmedabad"
-    st.session_state.state = ""
-    st.session_state.country = "IN"
+if "location" not in st.session_state:
+    st.session_state.location = None
 
-# Auto-detect button
+# Auto detect
 if st.sidebar.button("📡 Auto Detect My Location"):
     detected = detect_location_by_ip()
     if detected:
-        st.session_state.city = detected.get("city", "")
-        st.session_state.state = detected.get("state", "")
-        st.session_state.country = detected.get("country", "")
+        st.session_state.location = detected
         st.sidebar.success("Location detected!")
     else:
         st.sidebar.error("Unable to detect location.")
 
-city = st.sidebar.text_input("City", st.session_state.city)
-state = st.sidebar.text_input("State Code (optional)", st.session_state.state)
-country = st.sidebar.text_input("Country Code", st.session_state.country)
-
-st.sidebar.caption("Example: Ahmedabad, GJ, IN")
+city = st.sidebar.text_input("City", "Ahmedabad")
+country = st.sidebar.text_input("Country Code", "IN")
 
 unit = st.sidebar.radio("Temperature Unit", ["Celsius", "Fahrenheit"])
 units = "metric" if unit == "Celsius" else "imperial"
 
 # -------------------------------------------------
-# Build Location Query
+# Resolve Location → Coordinates
 # -------------------------------------------------
-location_parts = [city]
-if state:
-    location_parts.append(state)
-if country:
-    location_parts.append(country)
-
-query = ",".join(location_parts)
-
-# -------------------------------------------------
-# Search History
-# -------------------------------------------------
-if "history" not in st.session_state:
-    st.session_state.history = []
-
-# -------------------------------------------------
-# Fetch Weather
-# -------------------------------------------------
-weather = get_weather(query, units)
-
-if weather.get("cod") != 200:
-    st.error("❌ City not found or API error.")
-    st.stop()
-
-forecast = get_forecast(query, units)
-
-# Save history
-location_label = f"{city}, {state}, {country}".strip(", ")
-if location_label not in st.session_state.history:
-    st.session_state.history.append(location_label)
-    st.session_state.history = st.session_state.history[-5:]
+if st.session_state.location:
+    lat = st.session_state.location["lat"]
+    lon = st.session_state.location["lon"]
+    location_label = st.session_state.location["label"]
+else:
+    coords = get_coordinates(city, country)
+    if not coords:
+        st.error("❌ Location not found. Please check city/country.")
+        st.stop()
+    lat = coords["lat"]
+    lon = coords["lon"]
+    location_label = coords["location"]
 
 # -------------------------------------------------
-# Resolve State & Country via Geo API
+# Fetch Weather (USING COORDS)
 # -------------------------------------------------
-geo = get_location_details(city, country)
-
-if geo:
-    st.caption(f"📍 Detected Location: {geo.get('state', '')}, {geo.get('country', '')}")
+weather = get_weather_by_coords(lat, lon, units)
+forecast = get_forecast_by_coords(lat, lon, units)
 
 # -------------------------------------------------
 # Current Weather
@@ -131,14 +103,11 @@ icon = weather_icon(condition)
 
 temp = weather["main"]["temp"]
 feels_like = weather["main"]["feels_like"]
-temp_min = weather["main"]["temp_min"]
-temp_max = weather["main"]["temp_max"]
 humidity = weather["main"]["humidity"]
-pressure = weather["main"]["pressure"]
 wind = weather["wind"]["speed"]
 
 st.markdown("<div class='weather-card'>", unsafe_allow_html=True)
-st.subheader(f"{icon} Current Weather in {city.title()}")
+st.subheader(f"{icon} Current Weather in {location_label}")
 
 col1, col2, col3, col4 = st.columns(4)
 col1.metric("🌡 Temperature", f"{temp}°")
@@ -146,7 +115,6 @@ col2.metric("🤗 Feels Like", f"{feels_like}°")
 col3.metric("💧 Humidity", f"{humidity}%")
 col4.metric("🌬 Wind", f"{wind} m/s")
 
-st.write(f"🔻 Min: {temp_min}° | 🔺 Max: {temp_max}° | 🌡 Pressure: {pressure} hPa")
 st.info(weather_advice(temp, humidity, wind))
 st.markdown("</div>", unsafe_allow_html=True)
 
@@ -163,24 +131,10 @@ df = pd.DataFrame({"Date": dates, "Temperature": temps})
 
 fig, ax = plt.subplots(figsize=(10, 4))
 ax.plot(df["Date"], df["Temperature"], linewidth=2)
-ax.set_xlabel("Date")
-ax.set_ylabel("Temperature")
-ax.set_title("Temperature Trend")
 ax.tick_params(axis="x", rotation=45)
 ax.grid(alpha=0.3)
 
 st.pyplot(fig)
-st.markdown("</div>", unsafe_allow_html=True)
-
-# -------------------------------------------------
-# Recent Searches
-# -------------------------------------------------
-st.markdown("<div class='weather-card'>", unsafe_allow_html=True)
-st.subheader("🕒 Recent Searches")
-
-for c in st.session_state.history:
-    st.write("•", c)
-
 st.markdown("</div>", unsafe_allow_html=True)
 
 # -------------------------------------------------

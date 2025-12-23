@@ -1,62 +1,20 @@
 import requests
 import os
 
-# -------------------------------------------------
-# Load Environment Variables
-# -------------------------------------------------
-
 API_KEY = os.getenv("OPENWEATHER_API_KEY")
 
-BASE_WEATHER_URL = "https://api.openweathermap.org/data/2.5/weather"
-BASE_FORECAST_URL = "https://api.openweathermap.org/data/2.5/forecast"
 GEO_URL = "https://api.openweathermap.org/geo/1.0/direct"
+WEATHER_URL = "https://api.openweathermap.org/data/2.5/weather"
+FORECAST_URL = "https://api.openweathermap.org/data/2.5/forecast"
 
-TIMEOUT = 10  # seconds
+TIMEOUT = 10
 
-# -------------------------------------------------
-# Internal helper for API calls
-# -------------------------------------------------
-def _call_api(url, params):
-    try:
-        response = requests.get(url, params=params, timeout=TIMEOUT)
-        return response.json()
-    except requests.exceptions.Timeout:
-        return {"cod": 408, "message": "Request timeout"}
-    except requests.exceptions.ConnectionError:
-        return {"cod": 503, "message": "Network connection error"}
-    except requests.exceptions.RequestException as e:
-        return {"cod": 500, "message": str(e)}
 
 # -------------------------------------------------
-# Current Weather
+# Get coordinates from City + Country
 # -------------------------------------------------
-def get_weather(city, units="metric"):
-    params = {
-        "q": city,
-        "appid": API_KEY,
-        "units": units
-    }
-    return _call_api(BASE_WEATHER_URL, params)
-
-# -------------------------------------------------
-# 5-Day Forecast
-# -------------------------------------------------
-def get_forecast(city, units="metric"):
-    params = {
-        "q": city,
-        "appid": API_KEY,
-        "units": units
-    }
-    return _call_api(BASE_FORECAST_URL, params)
-
-# -------------------------------------------------
-# Geo API – Get State & Country from City
-# -------------------------------------------------
-def get_location_details(city, country=None):
-    """
-    Uses OpenWeather Geo API to fetch latitude, longitude, state, country
-    """
-    query = city if not country else f"{city},{country}"
+def get_coordinates(city, country=None):
+    query = f"{city},{country}" if country else city
     params = {
         "q": query,
         "limit": 1,
@@ -64,39 +22,56 @@ def get_location_details(city, country=None):
     }
 
     try:
-        response = requests.get(GEO_URL, params=params, timeout=TIMEOUT)
-        data = response.json()
+        res = requests.get(GEO_URL, params=params, timeout=TIMEOUT).json()
+        if not res:
+            return None
 
-        if isinstance(data, list) and len(data) > 0:
-            return {
-                "lat": data[0].get("lat"),
-                "lon": data[0].get("lon"),
-                "state": data[0].get("state"),
-                "country": data[0].get("country")
-            }
+        return {
+            "lat": res[0]["lat"],
+            "lon": res[0]["lon"],
+            "location": f'{res[0]["name"]}, {res[0]["country"]}'
+        }
     except Exception:
-        pass
+        return None
 
-    return None
 
 # -------------------------------------------------
 # Auto Detect Location using IP
 # -------------------------------------------------
 def detect_location_by_ip():
-    """
-    Detects user's city, state, country using IP
-    """
     try:
-        response = requests.get("https://ipapi.co/json/", timeout=5)
-        data = response.json()
-
+        data = requests.get("https://ipapi.co/json/", timeout=5).json()
         return {
-            "city": data.get("city"),
-            "state": data.get("region_code"),
-            "country": data.get("country_code")
+            "lat": data.get("latitude"),
+            "lon": data.get("longitude"),
+            "label": f'{data.get("city")}, {data.get("country_code")}'
         }
     except Exception:
         return None
+
+
+# -------------------------------------------------
+# Weather using Coordinates
+# -------------------------------------------------
+def get_weather_by_coords(lat, lon, units="metric"):
+    params = {
+        "lat": lat,
+        "lon": lon,
+        "appid": API_KEY,
+        "units": units
+    }
+    return requests.get(WEATHER_URL, params=params, timeout=TIMEOUT).json()
+
+
+def get_forecast_by_coords(lat, lon, units="metric"):
+    params = {
+        "lat": lat,
+        "lon": lon,
+        "appid": API_KEY,
+        "units": units
+    }
+    return requests.get(FORECAST_URL, params=params, timeout=TIMEOUT).json()
+
 
 # -------------------------------------------------
 # Weather Icons
@@ -111,15 +86,10 @@ def weather_icon(condition):
         "Snow": "❄️",
         "Mist": "🌫",
         "Haze": "🌫",
-        "Fog": "🌁",
-        "Smoke": "💨",
-        "Dust": "🌪",
-        "Sand": "🌪",
-        "Ash": "🌋",
-        "Squall": "💨",
-        "Tornado": "🌪"
+        "Fog": "🌁"
     }
     return icons.get(condition, "🌍")
+
 
 # -------------------------------------------------
 # Smart Weather Advice
@@ -127,25 +97,19 @@ def weather_icon(condition):
 def weather_advice(temp, humidity=None, wind=None):
     advice = []
 
-    if temp is not None:
-        if temp >= 38:
-            advice.append("🔥 Extreme heat — stay hydrated and avoid going out.")
-        elif temp >= 30:
-            advice.append("🌞 Hot weather — drink plenty of water.")
-        elif temp <= 8:
-            advice.append("❄ Very cold — wear warm clothes.")
-        elif temp <= 15:
-            advice.append("🧥 Cool weather — light jacket recommended.")
-        else:
-            advice.append("🌤 Pleasant temperature.")
+    if temp >= 38:
+        advice.append("🔥 Extreme heat — stay hydrated.")
+    elif temp >= 30:
+        advice.append("🌞 Hot weather — drink more water.")
+    elif temp <= 8:
+        advice.append("❄ Very cold — wear warm clothes.")
+    else:
+        advice.append("🌤 Pleasant weather.")
 
-    if humidity is not None:
-        if humidity >= 80:
-            advice.append("💧 High humidity — you may feel sticky.")
-        elif humidity <= 30:
-            advice.append("🏜 Low humidity — keep your skin hydrated.")
+    if humidity and humidity >= 80:
+        advice.append("💧 High humidity.")
 
-    if wind is not None and wind >= 10:
-        advice.append("🌬 Strong winds — be cautious outdoors.")
+    if wind and wind >= 10:
+        advice.append("🌬 Strong winds.")
 
     return " ".join(advice)
