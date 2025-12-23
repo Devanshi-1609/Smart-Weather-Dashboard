@@ -1,0 +1,11 @@
+Framework & Libraries:
+
+Streamlit (for web interface)
+
+Requests (for API calls)
+
+Pandas (for data handling)
+
+Matplotlib (for visualization)
+
+Python-dotenv (for environment variables)
