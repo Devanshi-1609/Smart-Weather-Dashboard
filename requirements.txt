@@ -1,6 +1,6 @@
 Framework & Libraries:
 
-Streamlit (for web interface)
+Streamlit>=1.30.0
 
 Requests (for API calls)
 
