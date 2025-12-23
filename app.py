@@ -101,7 +101,7 @@ if st.sidebar.button("📡 Auto Detect My Location"):
     else:
         st.sidebar.error("Unable to detect location.")
 
-city = st.sidebar.text_input("City", "Ahmedabad")
+city = st.sidebar.text_input("City", "Mumbai")
 country = st.sidebar.text_input("Country Code", "IN")
 
 unit = st.sidebar.radio("Temperature Unit", ["Celsius", "Fahrenheit"])
