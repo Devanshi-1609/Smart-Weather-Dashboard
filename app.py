@@ -126,19 +126,32 @@ st.info(weather_advice(temp, humidity, wind))
 st.markdown("</div>", unsafe_allow_html=True)
 
 # -------------------------------------------------
-# Forecast Chart
+# 5-Day Forecast (Daily)
 # -------------------------------------------------
 st.markdown("<div class='weather-card'>", unsafe_allow_html=True)
-st.subheader("📈 5-Day Temperature Forecast")
+st.subheader("📅 5-Day Temperature Forecast")
 
-dates = [item["dt_txt"] for item in forecast["list"]]
-temps = [item["main"]["temp"] for item in forecast["list"]]
+daily_forecast = {}
 
-df = pd.DataFrame({"Date": dates, "Temperature": temps})
+for item in forecast["list"]:
+    date = item["dt_txt"].split(" ")[0]
+    time = item["dt_txt"].split(" ")[1]
+
+    # Pick midday forecast for each day
+    if time == "12:00:00" and date not in daily_forecast:
+        daily_forecast[date] = item["main"]["temp"]
+
+# Convert to DataFrame
+df = pd.DataFrame({
+    "Date": list(daily_forecast.keys()),
+    "Temperature": list(daily_forecast.values())
+})
 
 fig, ax = plt.subplots(figsize=(10, 4))
-ax.plot(df["Date"], df["Temperature"], linewidth=2)
-ax.tick_params(axis="x", rotation=45)
+ax.plot(df["Date"], df["Temperature"], marker="o", linewidth=2)
+ax.set_xlabel("Date")
+ax.set_ylabel("Temperature")
+ax.set_title("Next 5 Days Forecast")
 ax.grid(alpha=0.3)
 
 st.pyplot(fig)
