@@ -8,4 +8,3 @@ Pandas (for data handling)
 
 Matplotlib (for visualization)
 
-Python-dotenv (for environment variables)
