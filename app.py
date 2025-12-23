@@ -98,6 +98,13 @@ forecast = get_forecast_by_coords(lat, lon, units)
 # -------------------------------------------------
 # Current Weather
 # -------------------------------------------------
+# -------------------------------------------------
+# Validate API Response
+# -------------------------------------------------
+if "weather" not in weather or "main" not in weather:
+    st.error("⚠ Unable to fetch weather data right now. Please try again.")
+    st.stop()
+
 condition = weather["weather"][0]["main"]
 icon = weather_icon(condition)
 
